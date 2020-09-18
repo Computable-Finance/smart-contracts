@@ -53,18 +53,6 @@ contract('KyberFeeHandlerWrapper', function(accounts) {
         rebateWallets.push(accounts[1]);
         rebateBpsPerWallet = [BPS];
 
-        epoch = new BN(0);
-        expiryTimestamp = new BN(5);
-        mockKyberDao = await MockKyberDao.new(
-            rewardInBPS,
-            rebateInBPS,
-            epoch,
-            expiryTimestamp
-        );
-
-        stakerPercentageInPrecision = precisionUnits.mul(rewardInBPS).div(BPS);
-        await mockKyberDao.setStakerPercentageInPrecision(stakerPercentageInPrecision);
-
         proxy = await Proxy.new();
         kyberNetwork = accounts[7];
 
@@ -81,21 +69,36 @@ contract('KyberFeeHandlerWrapper', function(accounts) {
         // setup sanity rate for ethFeeHandler
         sanityRate = await BurnKncSanityRate.new();
         await sanityRate.setLatestKncToEthRate(kncToEthPrecision);
-
-        // setup feeHandler
-        feeHandler = await FeeHandler.new(daoSetter, proxy.address, kyberNetwork, knc.address, BURN_BLOCK_INTERVAL, daoOperator);
-        await feeHandler.setDaoContract(mockKyberDao.address, {from: daoSetter})
-        await feeHandler.setBurnConfigParams(sanityRate.address, ethWeiToBurn, {from: daoOperator});
-        await feeHandler.getBRR();
-
-        // setup rewardsClaimer
-        rewardsClaimer = await MultipleEpochRewardsClaimer.new(mockKyberDao.address);
     });
 
     describe("test getUnclaimedEpochs function", async() => {
         let initialEpoch;
         let currentEpoch;
         let numEpochs = 3;
+
+        beforeEach("setup dao, feehandler and rewardsClaimer", async() => {
+            // setup mockKyberDao
+            epoch = new BN(0);
+            expiryTimestamp = new BN(5);
+            mockKyberDao = await MockKyberDao.new(
+                rewardInBPS,
+                rebateInBPS,
+                epoch,
+                expiryTimestamp
+            );
+    
+            stakerPercentageInPrecision = precisionUnits.mul(rewardInBPS).div(BPS);
+            await mockKyberDao.setStakerPercentageInPrecision(stakerPercentageInPrecision);
+    
+            // setup feeHandler
+            feeHandler = await FeeHandler.new(daoSetter, proxy.address, kyberNetwork, knc.address, BURN_BLOCK_INTERVAL, daoOperator);
+            await feeHandler.setDaoContract(mockKyberDao.address, {from: daoSetter})
+            await feeHandler.setBurnConfigParams(sanityRate.address, ethWeiToBurn, {from: daoOperator});
+            await feeHandler.getBRR();
+    
+            // setup rewardsClaimer
+            rewardsClaimer = await MultipleEpochRewardsClaimer.new(mockKyberDao.address);
+        });
         // beforeEach("send feeHandler fees for numEpochs", async() => {
         //     initialEpoch = (await mockKyberDao.epoch()).toNumber();
         //     await sendFeesToAllFeeHandlers(mockKyberDao, [feeHandler], numEpochs);
@@ -113,19 +116,28 @@ contract('KyberFeeHandlerWrapper', function(accounts) {
             await sendFeesToFeeHandler(mockKyberDao, feeHandler, numEpochs);
             currentEpoch = (await mockKyberDao.epoch()).toNumber();
     
-            result = await rewardsClaimer.getUnclaimedEpochs(feeHandler.address, zeroAddress);
+            result = await rewardsClaimer.getUnclaimedEpochs(feeHandler.address, staker);
             Helper.assertEqual(result.length, zeroBN, "result not empty");
             await mockKyberDao.setStakerPercentageInPrecision(stakerPercentageInPrecision);
         });
 
         it("should return all unclaimed epochs for staker", async() => {
+            let numEpochs = 15;
             initialEpoch = (await mockKyberDao.epoch()).toNumber();
             await sendFeesToFeeHandler(mockKyberDao, feeHandler, numEpochs);
             currentEpoch = (await mockKyberDao.epoch()).toNumber();
     
             result = await rewardsClaimer.getUnclaimedEpochs(feeHandler.address, zeroAddress);
-            Helper.assertGreater(result.length, zeroBN, "result is empty");
+            Helper.assertEqual(result.length, numEpochs, "result.length != numEpochs");
         });
+
+        it("should return unclaimed epochs if staker claimed for some epochs", async() => {});
+    });
+
+    describe("test claimMultipleRewards", async() => {
+        it("should not do anything if empty array is passed", async() => {});
+        it("should claim for 1 epoch", async() => {});
+        it("should claim for multiple epochs", async() => {});
     });
 });
 
