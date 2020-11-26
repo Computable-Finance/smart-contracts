@@ -8,6 +8,7 @@ import "../../utils/zeppelin/SafeERC20.sol";
 import "./mock/ICoFiXRouter.sol";
 import "./mock/ICoFiXFactory.sol";
 import "./mock/INest_3_OfferPrice.sol";
+import "./mock/ICoFiXPair.sol";
 
 contract KyberCofixReserve is IKyberReserve, Withdrawable3, Utils5 {
     using SafeERC20 for IERC20;
@@ -15,6 +16,7 @@ contract KyberCofixReserve is IKyberReserve, Withdrawable3, Utils5 {
     ICoFiXRouter iCoFiXRouter;
     ICoFiXFactory iCoFixFactory;
     INest_3_OfferPrice iNest_3_OfferPrice;
+    ICoFiXPair iCoFixPair;
     address NESTOracle = 0x7722891Ee45aD38AE05bDA8349bA4CF23cFd270F;
     address cofixFactory = 0xd5a19e1adb5592921dcc42e48623d75c4c91e405;
     uint256 internal constant COFIX_ORACLE_FEE = 0.01 ether; // only for CoFiX
@@ -61,7 +63,7 @@ contract KyberCofixReserve is IKyberReserve, Withdrawable3, Utils5 {
             srcAmount,
             amountMinEth,
             destAddress,
-            block.now + 100000 //TODO how should the deadline be set?
+            now
         );
         return true;
     }
@@ -73,6 +75,7 @@ contract KyberCofixReserve is IKyberReserve, Withdrawable3, Utils5 {
         uint256 srcQty,
         uint256 blockNumber
     ) public view returns (uint256) {
+        //iCoFixPair = iCoFixPair(cofixFactory.getPair(address(srcToken)));
         (uint256 ethAmountSrc, uint256 erc20AmountSrc) = iNest_3_OfferPrice.checkPriceForBlock(address(src), blockNumber);
         (uint256 ethAmountDest, uint256 erc20AmountDest) = iNest_3_OfferPrice.checkPriceForBlock(address(dest), blockNumber);
         return srcQty * (ethAmountSrc / ethAmountDest);
